@@ -1,0 +1,28 @@
+@startuml
+title Добавление новой задачи
+
+actor Пользователь as User
+participant "Telegram Bot" as Bot
+participant "Сервер приложения" as Server
+database "База данных" as DB
+participant "Сервис напоминаний" as Notifier
+
+User -> Bot: Отправляет команду /add
+Bot -> User: Запрашивает название задачи
+
+User -> Bot: Вводит название задачи
+Bot -> User: Запрашивает дату и время дедлайна
+
+User -> Bot: Вводит дедлайн
+Bot -> Server: Передает данные новой задачи
+
+Server -> DB: Сохранить задачу
+DB --> Server: Успешное сохранение
+
+Server -> Notifier: Зарегистрировать напоминание
+Notifier --> Server: Подтверждение
+
+Server --> Bot: Задача создано
+Bot --> User: Отправляет сообщение: "Задача успешно добавлено!"
+
+@enduml
