@@ -18,12 +18,9 @@ HELP_TEXT = (
 )
 
 
-def _get_token() -> str:
-    token = os.getenv("7861777768:AAFCX0hBOTCZtuDAqRiySmK4UJEbYSHpk3Y", "").strip()
-    return token
+TOKEN = "7861777768:AAFCX0hBOTCZtuDAqRiySmK4UJEbYSHpk3Y"
 
-
-bot = telebot.TeleBot(_get_token())
+bot = telebot.TeleBot(TOKEN)
 
 
 @bot.message_handler(commands=["start", "help"])
