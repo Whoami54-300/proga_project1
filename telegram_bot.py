@@ -1,47 +1,135 @@
+import os
 import telebot
-from telebot import types
-# from aiogram import types, executor
-# import sheduler
-# import dp
+
+import db
 
 
-bot = telebot.TeleBot("7861777768:AAFCX0hBOTCZtuDAqRiySmK4UJEbYSHpk3Y")
+HELP_TEXT = (
+    "ToDoList бот.\n\n"
+    "Команды:\n"
+    "/add <текст> — добавить задачу\n"
+    "/list — показать список\n"
+    "/delete <id> — удалить задачу по id\n"
+    "/edit <id> <новый текст> — изменить задачу по id\n\n"
+    "Примеры:\n"
+    "/add купить молоко\n"
+    "/delete 3\n"
+    "/edit 2 купить молоко и хлеб"
+)
 
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name} !")
-    keyboard = types.InlineKeyboardMarkup()
-    btn_yes = types.InlineKeyboardButton(text="Да", callback_data="productive_yes")
-    btn_no = types.InlineKeyboardButton(text="Нет", callback_data="productive_no")
-    keyboard.add(btn_yes, btn_no)
-    bot.send_message(message.chat.id, "Вы продуктивный?!", reply_markup=keyboard)
+def _get_token() -> str:
+    token = os.getenv("BOT_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError(
+            "Не найден BOT_TOKEN.\n"
+            "Задай переменную окружения BOT_TOKEN (токен от BotFather) и запусти снова."
+        )
+    return token
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    if call.data == "productive_yes":
-        bot.send_message(call.message.chat.id, "Это ооочень хорошо)")
-    elif call.data == "productive_no":
-        bot.send_message(call.message.chat.id, "ПОШЕЛ ОТ СЮДА!")
-    bot.answer_callback_query(call.id)
-    # bot.send_message(message.chat.id, "Напиши задачу. Если надо будет удалить, то пиши '-'")
 
-# @dp.message_handler(lambda message: message.text.startswith('-'))
-# async def del_task(message: types.Message):
-#     """Удаляет одну задачу по её идентификатору (id)"""
-#     row_id = int(message.text[1:])
-#     sheduler.delete_task(row_id)
-#     answer_message = "Задача успешно удалена."
-#     await message.answer(answer_message)
+bot = telebot.TeleBot(_get_token())
 
-# @dp.message_handler()
-# async def add_task(message: types.Message):
-#     """Добавляет задачу в планировщик"""
-#     if not message.text.startswith("/"):
-#         chat_id = message.chat.id
-#         await sheduler.add_task(message.text, chat_id)
 
-# if __name__ == "__main__":
-#     executor.start_polling(dp, skip_updates=True)
+@bot.message_handler(commands=["start", "help"])
+def start_help(message):
+    db.init_db()
+    bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}!\n\n{HELP_TEXT}")
 
-bot.polling(none_stop=True)
+
+@bot.message_handler(commands=["add"])
+def add_task(message):
+    db.init_db()
+    user_id = message.from_user.id
+
+    # /add текст задачи
+    text = message.text.split(maxsplit=1)
+    if len(text) < 2 or not text[1].strip():
+        bot.send_message(message.chat.id, "Использование: /add <текст задачи>")
+        return
+
+    try:
+        task_id = db.add_task(user_id, text[1])
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Не смог добавить задачу: {e}")
+        return
+
+    bot.send_message(message.chat.id, f"✅ Добавил задачу #{task_id}")
+
+
+@bot.message_handler(commands=["list"])
+def list_tasks(message):
+    db.init_db()
+    user_id = message.from_user.id
+
+    tasks = db.list_tasks(user_id)
+    if not tasks:
+        bot.send_message(message.chat.id, "Список пуст. Добавь задачу через /add")
+        return
+
+    lines = ["📌 Твои задачи:"]
+    for t in tasks:
+        lines.append(f"{t['id']}: {t['text']}")
+    bot.send_message(message.chat.id, "\n".join(lines))
+
+
+@bot.message_handler(commands=["delete"])
+def delete_task(message):
+    db.init_db()
+    user_id = message.from_user.id
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        bot.send_message(message.chat.id, "Использование: /delete <id>")
+        return
+
+    try:
+        task_id = int(parts[1])
+    except ValueError:
+        bot.send_message(message.chat.id, "id должен быть числом. Пример: /delete 3")
+        return
+
+    ok = db.delete_task(user_id, task_id)
+    if ok:
+        bot.send_message(message.chat.id, f"🗑 Удалил задачу #{task_id}")
+    else:
+        bot.send_message(message.chat.id, f"Не нашёл задачу #{task_id}")
+
+
+@bot.message_handler(commands=["edit"])
+def edit_task(message):
+    db.init_db()
+    user_id = message.from_user.id
+
+    # /edit <id> <новый текст>
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 3:
+        bot.send_message(message.chat.id, "Использование: /edit <id> <новый текст>")
+        return
+
+    try:
+        task_id = int(parts[1])
+    except ValueError:
+        bot.send_message(message.chat.id, "id должен быть числом. Пример: /edit 2 новый текст")
+        return
+
+    new_text = parts[2].strip()
+    if not new_text:
+        bot.send_message(message.chat.id, "Новый текст не должен быть пустым")
+        return
+
+    try:
+        ok = db.update_task(user_id, task_id, new_text)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Не смог изменить задачу: {e}")
+        return
+
+    if ok:
+        bot.send_message(message.chat.id, f"✏️ Обновил задачу #{task_id}")
+    else:
+        bot.send_message(message.chat.id, f"Не нашёл задачу #{task_id}")
+
+
+if __name__ == "__main__":
+    db.init_db()
+    bot.infinity_polling()
