@@ -19,12 +19,7 @@ HELP_TEXT = (
 
 
 def _get_token() -> str:
-    token = os.getenv("BOT_TOKEN", "").strip()
-    if not token:
-        raise RuntimeError(
-            "Не найден BOT_TOKEN.\n"
-            "Задай переменную окружения BOT_TOKEN (токен от BotFather) и запусти снова."
-        )
+    token = os.getenv("7861777768:AAFCX0hBOTCZtuDAqRiySmK4UJEbYSHpk3Y", "").strip()
     return token
 
 
