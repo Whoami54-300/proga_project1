@@ -34,7 +34,7 @@ def add_task(message):
     db.init_db()
     user_id = message.from_user.id
 
-    # /add текст задачи
+
     text = message.text.split(maxsplit=1)
     if len(text) < 2 or not text[1].strip():
         bot.send_message(message.chat.id, "Использование: /add <текст задачи>")
@@ -93,7 +93,7 @@ def edit_task(message):
     db.init_db()
     user_id = message.from_user.id
 
-    # /edit <id> <новый текст>
+    
     parts = message.text.split(maxsplit=2)
     if len(parts) < 3:
         bot.send_message(message.chat.id, "Использование: /edit <id> <новый текст>")

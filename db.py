@@ -1,4 +1,4 @@
-"""Модуль для взаимодействия с БД (ToDo задачи)."""
+
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any
 
-# tasks.db лежит рядом с db.py (не зависит от того, откуда ты запускаешь проект)
+
 DB_PATH = Path(__file__).with_name("tasks.db")
 
 
